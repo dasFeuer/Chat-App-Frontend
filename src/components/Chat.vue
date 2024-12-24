@@ -20,12 +20,32 @@
         <div class="messages-wrapper" ref="messagesWrapper" @scroll="handleScroll">
           <div class="messages" ref="messagesContainer">
             <div
-              v-for="(message, index) in messagesByUser(selectedUser)"
-              :key="index"
+              v-for="message in messagesByUser(selectedUser)"
+              :key="message.id"
               class="message"
-              :class="{ 'sent': message.sender === currentUser }"
+              :class="{ 'sent': message.sender === currentUser, 'editing': editingMessage && editingMessage.id === message.id }"
             >
-              <div class="message-content">{{ message.content }}</div>
+              <div class="message-content">
+                <template v-if="editingMessage && editingMessage.id === message.id">
+                  <input
+                    v-model="editingMessage.content"
+                    @keyup.enter="saveEdit"
+                    @keyup.esc="cancelEditing"
+                    class="edit-input"
+                  >
+                </template>
+                <template v-else>
+                  {{ message.content }}
+                </template>
+              </div>
+              <div v-if="message.sender === currentUser" class="message-actions">
+                <button @click="startEditing(message)" class="action-btn edit-btn" title="Edit">
+                  <font-awesome-icon :icon="['fas', 'edit']" />
+                </button>
+                <button @click="confirmDelete(message)" class="action-btn delete-btn" title="Delete">
+                  <font-awesome-icon :icon="['fas', 'trash']" />
+                </button>
+              </div>
               <div class="message-time">{{ formatTime(message.timestamp) }}</div>
             </div>
           </div>
@@ -55,10 +75,14 @@
 <script>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useStore } from 'vuex'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 export default {
   // eslint-disable-next-line vue/multi-word-component-names
   name: 'Chat',
+  components: {
+    FontAwesomeIcon
+  },
   setup() {
     const store = useStore()
     const selectedUser = ref(null)
@@ -69,11 +93,12 @@ export default {
     const scrollAnchor = ref(null)
     const isScrolledToBottom = ref(true)
     const unreadMessages = ref(0)
+    const editingMessage = ref(null)
 
     const currentUser = computed(() => store.state.currentUser)
     const otherUsers = computed(() => store.getters.otherUsers)
     const messagesByUser = computed(() => (user) => {
-      return store.getters.messagesByUser(user) || []
+      return store.getters.messagesByUser(user)
     })
 
     const checkIfScrolledToBottom = () => {
@@ -115,8 +140,7 @@ export default {
         try {
           await store.dispatch('sendChatMessage', {
             receiver: selectedUser.value,
-            content: messageContent,
-            timestamp: new Date().toISOString()
+            content: messageContent
           })
           await scrollToBottom(true)
         } catch (error) {
@@ -135,11 +159,9 @@ export default {
       const now = new Date()
       const diff = now - date
       
-      // If message is from today, show time only
       if (diff < 24 * 60 * 60 * 1000) {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
-      // If message is older, show date and time
       return date.toLocaleDateString([], { 
         month: 'short', 
         day: 'numeric',
@@ -148,7 +170,50 @@ export default {
       })
     }
 
-    // Watch for new messages and scroll to bottom if necessary
+    const startEditing = (message) => {
+      editingMessage.value = { ...message }
+      nextTick(() => {
+        const input = document.querySelector('.edit-input')
+        if (input) {
+          input.focus()
+        }
+      })
+    }
+
+    const cancelEditing = () => {
+      editingMessage.value = null
+    }
+
+    const saveEdit = async () => {
+      if (editingMessage.value) {
+        try {
+          await store.dispatch('updateChatMessage', {
+            messageId: editingMessage.value.id,
+            content: editingMessage.value.content
+          })
+          editingMessage.value = null
+        } catch (error) {
+          console.error('Failed to update message:', error)
+          alert('Failed to update message. Please try again.')
+        }
+      }
+    }
+
+    const confirmDelete = (message) => {
+      if (confirm('Are you sure you want to delete this message?')) {
+        deleteMessage(message)
+      }
+    }
+
+    const deleteMessage = async (message) => {
+      try {
+        await store.dispatch('deleteChatMessage', message)
+      } catch (error) {
+        console.error('Failed to delete message:', error)
+        alert('Failed to delete message. Please try again.')
+      }
+    }
+
     watch(() => messagesByUser.value(selectedUser.value), scrollToBottom)
 
     onMounted(async () => {
@@ -172,7 +237,13 @@ export default {
       messagesWrapper,
       scrollAnchor,
       handleScroll,
-      unreadMessages
+      unreadMessages,
+      editingMessage,
+      startEditing,
+      cancelEditing,
+      saveEdit,
+      confirmDelete,
+      deleteMessage
     }
   }
 }
@@ -183,15 +254,15 @@ export default {
   display: flex;
   height: 80vh;
   margin-top: 20px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .users-panel {
   width: 250px;
-  border-right: 1px solid #ddd;
+  border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   background-color: #f8f9fa;
 }
@@ -199,7 +270,7 @@ export default {
 .users-panel h3 {
   padding: 15px;
   margin: 0;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #e0e0e0;
   background-color: #e9ecef;
   font-size: 1.1em;
 }
@@ -230,7 +301,7 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #fff;
+  background-color: #f8f9fa;
 }
 
 .chat-messages {
@@ -243,7 +314,7 @@ export default {
 .chat-messages h3 {
   padding: 15px;
   margin: 0;
-  border-bottom: 1px solid #ddd;
+  border-bottom: 1px solid #e0e0e0;
   background-color: #f8f9fa;
   font-size: 1.1em;
 }
@@ -251,7 +322,7 @@ export default {
 .messages-wrapper {
   flex: 1;
   overflow-y: auto;
-  padding: 15px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
 }
@@ -262,7 +333,7 @@ export default {
 
 .message {
   margin: 10px 0;
-  max-width: 70%;
+  max-width: 75%;
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -277,12 +348,12 @@ export default {
 }
 
 .message-content {
-  background-color: #f1f1f1;
-  padding: 10px 15px;
+  background-color: #fff;
+  padding: 12px 16px;
   border-radius: 18px;
   display: inline-block;
   word-break: break-word;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .message.sent .message-content {
@@ -290,16 +361,23 @@ export default {
   color: white;
 }
 
+.message.editing .message-content {
+  background-color: #e9ecef;
+  border: 1px solid #007bff;
+  color: #495057;
+}
+
 .message-time {
   font-size: 0.75em;
   color: #888;
   margin-top: 4px;
+  text-align: right;
 }
 
 .message-input-wrapper {
-  border-top: 1px solid #ddd;
+  border-top: 1px solid #e0e0e0;
   background-color: #fff;
-  padding: 15px;
+  padding: 20px;
   position: relative;
 }
 
@@ -310,10 +388,10 @@ export default {
 
 .message-input input {
   flex: 1;
-  padding: 12px 15px;
-  border: 1px solid #ccc;
-  border-radius: 20px;
-  font-size: 14px;
+  padding: 12px 20px;
+  border: 1px solid #ced4da;
+  border-radius: 25px;
+  font-size: 16px;
   transition: border-color 0.2s, box-shadow 0.2s;
   background-color: #f8f9fa;
 }
@@ -330,13 +408,13 @@ export default {
 }
 
 .message-input button {
-  padding: 10px 20px;
+  padding: 12px 24px;
   background-color: #007bff;
   color: white;
   border: none;
-  border-radius: 20px;
+  border-radius: 25px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 16px;
   transition: background-color 0.2s, transform 0.2s;
   font-weight: bold;
 }
@@ -366,6 +444,43 @@ export default {
   margin-bottom: 15px;
 }
 
+.message-actions {
+  display: none;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.message:hover .message-actions {
+  display: flex;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  color: #6c757d;
+  transition: color 0.2s, background-color 0.2s;
+  margin-left: 5px;
+  border-radius: 4px;
+}
+
+.action-btn:hover {
+  color: #fff;
+  background-color: #007bff;
+}
+
+.edit-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #007bff;
+  background-color: #fff;
+  font-size: inherit;
+  color: #495057;
+  outline: none;
+  border-radius: 18px;
+}
+
 /* Scrollbar styling */
 .messages-wrapper::-webkit-scrollbar {
   width: 6px;
@@ -385,297 +500,3 @@ export default {
 }
 </style>
 
-
-
-
-<!-- <template>
-
-  <div class="chat-container">
-    <div class="users-panel">
-      <h3>Available Users</h3>
-      <div class="users-list">
-        <div
-          v-for="user in otherUsers"
-          :key="user"
-          class="user-item"
-          :class="{ active: selectedUser === user }"
-          @click="selectUser(user)"
-        >
-          {{ user }}
-        </div>
-      </div>
-    </div>
-    <div class="chat-panel">
-      <div v-if="selectedUser" class="chat-messages">
-        <h3>Chat with {{ selectedUser }}</h3>
-        <div class="messages" ref="messagesContainer">
-          <div
-            v-for="(message, index) in messagesByUser(selectedUser)"
-            :key="index"
-            class="message"
-            :class="{ 'sent': message.sender === currentUser }"
-          >
-            <div class="message-content">{{ message.content }}</div>
-            <div class="message-time">{{ formatTime(message.timestamp) }}</div>
-          </div>
-        </div>
-        <form @submit.prevent="sendMessage" class="message-input">
-          <input
-            v-model="newMessage"
-            placeholder="Type a message..."
-            :disabled="isSending"
-          >
-          <button type="submit" :disabled="isSending || !newMessage.trim()">
-            {{ isSending ? 'Sending...' : 'Send' }}
-          </button>
-        </form>
-      </div>
-      <div v-else class="no-chat-selected">
-        Select a user to start chatting
-      </div>
-    </div>
-  </div>
-</template>
-
-<script>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
-import { useStore } from 'vuex'
-
-export default {
-  // eslint-disable-next-line vue/multi-word-component-names
-  name: 'Chat',
-  setup() {
-    const store = useStore()
-    const selectedUser = ref(null)
-    const newMessage = ref('')
-    const isSending = ref(false)
-    const messagesContainer = ref(null)
-
-    const currentUser = computed(() => store.state.currentUser)
-    const otherUsers = computed(() => store.getters.otherUsers)
-    const messagesByUser = computed(() => (user) => {
-      return store.getters.messagesByUser(user) || []
-    })
-
-    const scrollToBottom = async () => {
-      await nextTick()
-      if (messagesContainer.value) {
-        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-      }
-    }
-
-    const selectUser = async (user) => {
-      selectedUser.value = user
-      await store.dispatch('fetchChatHistory', user)
-      await scrollToBottom()
-    }
-
-    const sendMessage = async () => {
-      const messageContent = newMessage.value.trim()
-      if (messageContent && selectedUser.value && !isSending.value) {
-        isSending.value = true
-        newMessage.value = ''
-        
-        try {
-          await store.dispatch('sendChatMessage', {
-            receiver: selectedUser.value,
-            content: messageContent,
-            timestamp: new Date().toISOString()
-          })
-          await scrollToBottom()
-        } catch (error) {
-          console.error('Failed to send message:', error)
-          alert('Failed to send message. Please try again.')
-          newMessage.value = messageContent // Restore message on failure
-        } finally {
-          isSending.value = false
-        }
-      }
-    }
-
-    const formatTime = (timestamp) => {
-      if (!timestamp) return ''
-      const date = new Date(timestamp)
-      const now = new Date()
-      const diff = now - date
-      
-      // If message is from today, show time only
-      if (diff < 24 * 60 * 60 * 1000) {
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-      // If message is older, show date and time
-      return date.toLocaleDateString([], { 
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }
-
-    // Watch for new messages and scroll to bottom
-    watch(() => messagesByUser.value(selectedUser.value), scrollToBottom)
-
-    onMounted(async () => {
-      await store.dispatch('fetchUsers')
-    })
-
-    return {
-      selectedUser,
-      newMessage,
-      currentUser,
-      otherUsers,
-      messagesByUser,
-      selectUser,
-      sendMessage,
-      formatTime,
-      isSending,
-      messagesContainer
-    }
-  }
-}
-</script>
-
-<style scoped>
-.chat-container {
-  display: flex;
-  height: 70vh;
-  margin-top: 20px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.users-panel {
-  width: 250px;
-  border-right: 1px solid #ddd;
-  overflow-y: auto;
-}
-
-.users-panel h3 {
-  padding: 15px;
-  margin: 0;
-  border-bottom: 1px solid #ddd;
-}
-
-.users-list {
-  padding: 10px;
-}
-
-.user-item {
-  padding: 10px;
-  margin: 5px 0;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.user-item:hover {
-  background-color: #f5f5f5;
-}
-
-.user-item.active {
-  background-color: #e3f2fd;
-}
-
-.chat-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-messages {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-messages h3 {
-  padding: 15px;
-  margin: 0;
-  border-bottom: 1px solid #ddd;
-}
-
-.messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 15px;
-  scroll-behavior: smooth;
-}
-
-.message {
-  margin: 10px 0;
-  max-width: 70%;
-}
-
-.message.sent {
-  margin-left: auto;
-  text-align: right;
-}
-
-.message-content {
-  background-color: #f1f1f1;
-  padding: 10px 15px;
-  border-radius: 15px;
-  display: inline-block;
-  word-break: break-word;
-}
-
-.message.sent .message-content {
-  background-color: #e3f2fd;
-}
-
-.message-time {
-  font-size: 0.8em;
-  color: #666;
-  margin-top: 4px;
-}
-
-.message-input {
-  display: flex;
-  padding: 15px;
-  gap: 10px;
-  border-top: 1px solid #ddd;
-  background-color: #fff;
-}
-
-.message-input input {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.message-input input:disabled {
-  background-color: #f5f5f5;
-  cursor: not-allowed;
-}
-
-.message-input button {
-  padding: 10px 20px;
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.message-input button:hover:not(:disabled) {
-  background-color: #45a049;
-}
-
-.message-input button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.no-chat-selected {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #666;
-  font-size: 16px;
-}
-</style> -->
