@@ -2,6 +2,7 @@ import { createStore } from 'vuex'
 import axios from 'axios'
 import SockJS from 'sockjs-client'
 import { Stomp } from '@stomp/stompjs'
+import router from '../router'
 
 const API_URL = 'http://localhost:8080'
 
@@ -25,6 +26,14 @@ api.interceptors.request.use(
     return Promise.reject(error)
   }
 )
+
+const sortMessagesByTimestamp = (messages) => {
+  return [...messages].sort((a, b) => {
+    const dateA = new Date(a.timestamp).getTime();
+    const dateB = new Date(b.timestamp).getTime();
+    return dateA - dateB; // Ascending order - oldest first
+  });
+};
 
 export default createStore({
   state: {
@@ -56,22 +65,24 @@ export default createStore({
     setMessages(state, { username, messages }) {
       state.messages = {
         ...state.messages,
-        [username]: messages
-      }
+        [username]: sortMessagesByTimestamp(messages || [])
+      };
     },
     addMessage(state, message) {
-      const chatPartner = message.sender === state.currentUser ? message.receiver : message.sender
+      const chatPartner = message.sender === state.currentUser ? message.receiver : message.sender;
       if (!state.messages[chatPartner]) {
-        state.messages[chatPartner] = []
+        state.messages[chatPartner] = [];
       }
-      state.messages[chatPartner].push(message)
+      state.messages[chatPartner].push(message);
+      state.messages[chatPartner] = sortMessagesByTimestamp(state.messages[chatPartner]);
     },
     updateMessage(state, updatedMessage) {
-      const chatPartner = updatedMessage.sender === state.currentUser ? updatedMessage.receiver : updatedMessage.sender
+      const chatPartner = updatedMessage.sender === state.currentUser ? updatedMessage.receiver : updatedMessage.sender;
       if (state.messages[chatPartner]) {
-        const messageIndex = state.messages[chatPartner].findIndex(msg => msg.id === updatedMessage.id)
+        const messageIndex = state.messages[chatPartner].findIndex(msg => msg.id === updatedMessage.id);
         if (messageIndex !== -1) {
-          state.messages[chatPartner].splice(messageIndex, 1, updatedMessage)
+          state.messages[chatPartner].splice(messageIndex, 1, updatedMessage);
+          state.messages[chatPartner] = sortMessagesByTimestamp(state.messages[chatPartner]);
         }
       }
     },
@@ -87,6 +98,20 @@ export default createStore({
     }
   },
   actions: {
+    async registerUser({ commit, dispatch }, { username, password, email }) {
+      try {
+        const response = await api.post('/auth/register', { username, password, email })
+        commit('setCurrentUser', response.data.username)
+        commit('setToken', response.data.token)
+        commit('setMessages', { username: response.data.username, messages: [] }) // Initialize empty chat history
+        await dispatch('setupWebSocket')
+        await dispatch('fetchUsers')
+        return response.data
+      } catch (error) {
+        console.error('Registration failed:', error)
+        throw error
+      }
+    },
     async loginUser({ commit, dispatch }, { username, password }) {
       try {
         const response = await api.post('/auth/login', { username, password })
@@ -106,6 +131,7 @@ export default createStore({
       }
       commit('clearAuth')
       commit('setStompClient', null)
+      router.push('/login')
     },
     async fetchUsers({ commit }) {
       try {
@@ -138,7 +164,8 @@ export default createStore({
         const message = {
           sender: state.currentUser,
           receiver: receiver,
-          content: content
+          content: content,
+          timestamp: new Date().toISOString()
         }
         
         state.stompClient.publish({
@@ -197,7 +224,8 @@ export default createStore({
       if (state.stompClient && state.stompClient.connected) {
         const message = {
           id: messageId,
-          content: content
+          content: content,
+          timestamp: new Date().toISOString()
         }
         
         state.stompClient.publish({
@@ -229,7 +257,9 @@ export default createStore({
     isAuthenticated: state => !!state.token,
     currentUser: state => state.currentUser,
     otherUsers: state => state.users.filter(user => user !== state.currentUser),
-    messagesByUser: state => username => state.messages[username] || []
+    messagesByUser: (state) => (username) => {
+      return sortMessagesByTimestamp(state.messages[username] || []);
+    }
   }
 })
 

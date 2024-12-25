@@ -20,10 +20,10 @@
         <div class="messages-wrapper" ref="messagesWrapper" @scroll="handleScroll">
           <div class="messages" ref="messagesContainer">
             <div
-              v-for="message in messagesByUser(selectedUser)"
-              :key="message.id"
+              v-for="message in sortedMessages"
+              :key="`${message.id}-${message.timestamp}`"
               class="message"
-              :class="{ 'sent': message.sender === currentUser, 'editing': editingMessage && editingMessage.id === message.id }"
+              :class="{ 'sent': message.sender === currentUser, 'received': message.sender !== currentUser }"
             >
               <div class="message-content">
                 <template v-if="editingMessage && editingMessage.id === message.id">
@@ -49,7 +49,6 @@
               <div class="message-time">{{ formatTime(message.timestamp) }}</div>
             </div>
           </div>
-          <div class="scroll-anchor" ref="scrollAnchor"></div>
         </div>
         <div class="message-input-wrapper">
           <form @submit.prevent="sendMessage" class="message-input">
@@ -97,9 +96,11 @@ export default {
 
     const currentUser = computed(() => store.state.currentUser)
     const otherUsers = computed(() => store.getters.otherUsers)
-    const messagesByUser = computed(() => (user) => {
-      return store.getters.messagesByUser(user)
-    })
+    const messagesByUser = computed(() => store.getters.messagesByUser)
+
+    const sortedMessages = computed(() => {
+      return messagesByUser.value(selectedUser.value) || [];
+    });
 
     const checkIfScrolledToBottom = () => {
       if (messagesWrapper.value) {
@@ -109,14 +110,11 @@ export default {
     }
 
     const scrollToBottom = async (force = false) => {
-      await nextTick()
-      if (scrollAnchor.value && (isScrolledToBottom.value || force)) {
-        scrollAnchor.value.scrollIntoView({ behavior: 'smooth' })
-        unreadMessages.value = 0
-      } else if (!isScrolledToBottom.value) {
-        unreadMessages.value++
+      await nextTick();
+      if (messagesWrapper.value && (isScrolledToBottom.value || force)) {
+        messagesWrapper.value.scrollTop = messagesWrapper.value.scrollHeight;
       }
-    }
+    };
 
     const handleScroll = () => {
       checkIfScrolledToBottom()
@@ -126,10 +124,14 @@ export default {
     }
 
     const selectUser = async (user) => {
-      selectedUser.value = user
-      await store.dispatch('fetchChatHistory', user)
-      await scrollToBottom(true)
-    }
+      selectedUser.value = user;
+      await store.dispatch('fetchChatHistory', user);
+      if (!store.state.messages[user]) {
+        store.commit('setMessages', { username: user, messages: [] });
+      }
+      await nextTick();
+      scrollToBottom(true);
+    };
 
     const sendMessage = async () => {
       const messageContent = newMessage.value.trim()
@@ -214,7 +216,12 @@ export default {
       }
     }
 
-    watch(() => messagesByUser.value(selectedUser.value), scrollToBottom)
+    watch(sortedMessages, async (newMessages, oldMessages) => {
+      if (newMessages.length > (oldMessages?.length || 0)) {
+        await nextTick()
+        scrollToBottom(true)
+      }
+    })
 
     onMounted(async () => {
       await store.dispatch('fetchUsers')
@@ -228,7 +235,7 @@ export default {
       newMessage,
       currentUser,
       otherUsers,
-      messagesByUser,
+      sortedMessages,
       selectUser,
       sendMessage,
       formatTime,
@@ -321,19 +328,22 @@ export default {
 
 .messages-wrapper {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  padding: 20px;
 }
 
 .messages {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100%;
 }
 
 .message {
-  margin: 10px 0;
-  max-width: 75%;
+  margin: 4px 0;
+  max-width: 70%;
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -343,8 +353,11 @@ export default {
 }
 
 .message.sent {
-  margin-left: auto;
-  text-align: right;
+  align-self: flex-end;
+}
+
+.message.received {
+  align-self: flex-start;
 }
 
 .message-content {

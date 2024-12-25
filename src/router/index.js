@@ -1,17 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LoginForm from '../components/Login.vue'
-import RegisterForm from '../components/Register.vue'
-import ChatRoom from '../components/Chat.vue'
+import Login from '../components/Login.vue'
+import Register from '../components/Register.vue'
+import Chat from '../components/Chat.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
-  { path: '/login', component: LoginForm, name: 'Login' },
-  { path: '/register', component: RegisterForm, name: 'Register' },
+  { path: '/login', component: Login },
+  { path: '/register', component: Register },
   { 
     path: '/chat', 
-    component: ChatRoom, 
-    name: 'Chat',
-    meta: { requiresAuth: true } 
+    component: Chat,
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -21,10 +20,9 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  console.log('Navigating to:', to.path)
   if (to.matched.some(record => record.meta.requiresAuth)) {
     if (!localStorage.getItem('token')) {
-      next({ name: 'Login' })
+      next({ path: '/login' })
     } else {
       next()
     }
@@ -34,4 +32,3 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
-
