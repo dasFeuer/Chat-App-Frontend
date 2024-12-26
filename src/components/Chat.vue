@@ -21,7 +21,7 @@
           <div class="messages" ref="messagesContainer">
             <div
               v-for="message in sortedMessages"
-              :key="`${message.id}-${message.timestamp}`"
+              :key="message.id"
               class="message"
               :class="{ 'sent': message.sender === currentUser, 'received': message.sender !== currentUser }"
             >
@@ -46,7 +46,6 @@
                   <font-awesome-icon :icon="['fas', 'trash']" />
                 </button>
               </div>
-              <div class="message-time">{{ formatTime(message.timestamp) }}</div>
             </div>
           </div>
         </div>
@@ -89,9 +88,7 @@ export default {
     const isSending = ref(false)
     const messagesContainer = ref(null)
     const messagesWrapper = ref(null)
-    const scrollAnchor = ref(null)
     const isScrolledToBottom = ref(true)
-    const unreadMessages = ref(0)
     const editingMessage = ref(null)
 
     const currentUser = computed(() => store.state.currentUser)
@@ -118,17 +115,11 @@ export default {
 
     const handleScroll = () => {
       checkIfScrolledToBottom()
-      if (isScrolledToBottom.value) {
-        unreadMessages.value = 0
-      }
     }
 
     const selectUser = async (user) => {
       selectedUser.value = user;
       await store.dispatch('fetchChatHistory', user);
-      if (!store.state.messages[user]) {
-        store.commit('setMessages', { username: user, messages: [] });
-      }
       await nextTick();
       scrollToBottom(true);
     };
@@ -153,23 +144,6 @@ export default {
           isSending.value = false
         }
       }
-    }
-
-    const formatTime = (timestamp) => {
-      if (!timestamp) return ''
-      const date = new Date(timestamp)
-      const now = new Date()
-      const diff = now - date
-      
-      if (diff < 24 * 60 * 60 * 1000) {
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }
-      return date.toLocaleDateString([], { 
-        month: 'short', 
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
     }
 
     const startEditing = (message) => {
@@ -238,13 +212,10 @@ export default {
       sortedMessages,
       selectUser,
       sendMessage,
-      formatTime,
       isSending,
       messagesContainer,
       messagesWrapper,
-      scrollAnchor,
       handleScroll,
-      unreadMessages,
       editingMessage,
       startEditing,
       cancelEditing,

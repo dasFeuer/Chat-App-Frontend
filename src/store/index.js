@@ -27,12 +27,8 @@ api.interceptors.request.use(
   }
 )
 
-const sortMessagesByTimestamp = (messages) => {
-  return [...messages].sort((a, b) => {
-    const dateA = new Date(a.timestamp).getTime();
-    const dateB = new Date(b.timestamp).getTime();
-    return dateA - dateB; // Ascending order - oldest first
-  });
+const sortMessagesById = (messages) => {
+  return [...messages].sort((a, b) => a.id - b.id);
 };
 
 export default createStore({
@@ -65,7 +61,7 @@ export default createStore({
     setMessages(state, { username, messages }) {
       state.messages = {
         ...state.messages,
-        [username]: sortMessagesByTimestamp(messages || [])
+        [username]: sortMessagesById(messages)
       };
     },
     addMessage(state, message) {
@@ -74,7 +70,7 @@ export default createStore({
         state.messages[chatPartner] = [];
       }
       state.messages[chatPartner].push(message);
-      state.messages[chatPartner] = sortMessagesByTimestamp(state.messages[chatPartner]);
+      state.messages[chatPartner] = sortMessagesById(state.messages[chatPartner]);
     },
     updateMessage(state, updatedMessage) {
       const chatPartner = updatedMessage.sender === state.currentUser ? updatedMessage.receiver : updatedMessage.sender;
@@ -82,7 +78,7 @@ export default createStore({
         const messageIndex = state.messages[chatPartner].findIndex(msg => msg.id === updatedMessage.id);
         if (messageIndex !== -1) {
           state.messages[chatPartner].splice(messageIndex, 1, updatedMessage);
-          state.messages[chatPartner] = sortMessagesByTimestamp(state.messages[chatPartner]);
+          state.messages[chatPartner] = sortMessagesById(state.messages[chatPartner]);
         }
       }
     },
@@ -258,8 +254,7 @@ export default createStore({
     currentUser: state => state.currentUser,
     otherUsers: state => state.users.filter(user => user !== state.currentUser),
     messagesByUser: (state) => (username) => {
-      return sortMessagesByTimestamp(state.messages[username] || []);
+      return sortMessagesById(state.messages[username] || []);
     }
   }
 })
-
