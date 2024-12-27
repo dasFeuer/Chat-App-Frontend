@@ -4,33 +4,50 @@
     <form @submit.prevent="login" class="login-form">
       <input v-model="username" type="text" placeholder="Username" required>
       <input v-model="password" type="password" placeholder="Password" required>
-      <button type="submit">Login</button>
+      <button type="submit" :disabled="isLoading">
+        {{ isLoading ? 'Logging in...' : 'Login' }}
+      </button>
     </form>
+    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
     <p class="register-link">Don't have an account? <router-link to="/register">Register</router-link></p>
   </div>
 </template>
 
 <script>
-import { mapActions } from 'vuex'
+import { mapActions, mapGetters } from 'vuex'
 
 export default {
   name: 'LoginForm',
   data() {
     return {
       username: '',
-      password: ''
+      password: '',
+      isLoading: false,
+      errorMessage: ''
     }
+  },
+  computed: {
+    ...mapGetters(['isAuthenticated'])
   },
   methods: {
     ...mapActions(['loginUser']),
     async login() {
+      this.isLoading = true
+      this.errorMessage = ''
       try {
         await this.loginUser({ username: this.username, password: this.password })
         this.$router.push('/chat')
       } catch (error) {
         console.error('Login failed:', error)
-        alert('Login failed. Please try again.')
+        this.errorMessage = 'Login failed. Please try again.'
+      } finally {
+        this.isLoading = false
       }
+    }
+  },
+  created() {
+    if (this.isAuthenticated) {
+      this.$router.push('/chat')
     }
   }
 }
@@ -40,6 +57,7 @@ export default {
 .login-container {
   max-width: 400px;
   margin: 0 auto;
+  padding: 20px;
 }
 
 .login-form {
@@ -64,8 +82,13 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+button:hover:not(:disabled) {
   background-color: #45a049;
+}
+
+button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
 }
 
 .register-link {
@@ -81,5 +104,10 @@ button:hover {
 .register-link a:hover {
   text-decoration: underline;
 }
-</style>
 
+.error-message {
+  color: #d32f2f;
+  margin-top: 10px;
+  text-align: center;
+}
+</style>

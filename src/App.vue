@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <h1>Chat Application</h1>
+    <h1>Barun's Chat Application</h1>
     <div v-if="isAuthenticated">
       <div class="user-info">
         <span>Logged in as: {{ currentUser }}</span>
@@ -24,7 +24,6 @@ export default {
     ...mapActions(['logout']),
     handleLogout() {
       this.logout()
-      // The navigation to the login page is now handled in the Vuex store
     }
   }
 }
