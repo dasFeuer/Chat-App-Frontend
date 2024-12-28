@@ -70,7 +70,6 @@ export default createStore({
     },
 
     setMessages(state, { username, messages }) {
-      // Filter messages for the specific chat partner
       const filteredMessages = messages.filter(message => 
         (message.sender === state.currentUser && message.receiver === username) ||
         (message.sender === username && message.receiver === state.currentUser)
@@ -90,7 +89,6 @@ export default createStore({
         state.messages[chatPartner] = []
       }
 
-      // Avoid duplicate messages
       const isDuplicate = state.messages[chatPartner].some(m => m.id === message.id)
       if (!isDuplicate) {
         state.messages[chatPartner].push(message)
@@ -153,7 +151,6 @@ export default createStore({
         await dispatch('setupWebSocket')
         await dispatch('loadAllMessages')
         await dispatch('fetchUsers')
-        router.push('/chat')
         return response.data
       } catch (error) {
         console.error('Login failed:', error)
@@ -189,7 +186,6 @@ export default createStore({
         const response = await api.get('/chat/history')
         const messagesByUser = {}
         
-        // Group messages by chat partner
         response.data.forEach(message => {
           const chatPartner = message.sender === state.currentUser ? 
             message.receiver : message.sender
@@ -200,7 +196,6 @@ export default createStore({
           messagesByUser[chatPartner].push(message)
         })
 
-        // Commit messages for each chat partner
         Object.entries(messagesByUser).forEach(([username, messages]) => {
           commit('setMessages', { username, messages })
         })
