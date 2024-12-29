@@ -3,13 +3,8 @@
     <div class="users-panel">
       <h3>Available Users</h3>
       <div class="users-list">
-        <div
-          v-for="user in otherUsers"
-          :key="user"
-          class="user-item"
-          :class="{ active: selectedUser === user }"
-          @click="selectUser(user)"
-        >
+        <div v-for="user in otherUsers" :key="user" class="user-item" :class="{ active: selectedUser === user }"
+          @click="selectUser(user)">
           <div class="user-avatar">{{ user.charAt(0).toUpperCase() }}</div>
           <span>{{ user }}</span>
         </div>
@@ -20,21 +15,13 @@
         <h3>Chat with {{ selectedUser }}</h3>
         <div class="messages-wrapper" ref="messagesWrapper" @scroll="handleScroll">
           <div class="messages" ref="messagesContainer">
-            <div
-              v-for="message in sortedMessages"
-              :key="message.id"
-              class="message"
-              :class="{ 'sent': message.sender === currentUser, 'received': message.sender !== currentUser }"
-            >
+            <div v-for="message in sortedMessages" :key="message.id" class="message"
+              :class="{ 'sent': message.sender === currentUser, 'received': message.sender !== currentUser }">
               <div class="message-wrapper">
                 <div class="message-content">
                   <template v-if="editingMessage && editingMessage.id === message.id">
-                    <input
-                      v-model="editingMessage.content"
-                      @keyup.enter="saveEdit"
-                      @keyup.esc="cancelEditing"
-                      class="edit-input"
-                    >
+                    <input v-model="editingMessage.content" @keyup.enter="saveEdit" @keyup.esc="cancelEditing"
+                      class="edit-input">
                   </template>
                   <template v-else>
                     {{ message.content }}
@@ -54,12 +41,8 @@
         </div>
         <div class="message-input-wrapper">
           <form @submit.prevent="sendMessage" class="message-input">
-            <input
-              v-model="newMessage"
-              placeholder="Type a message..."
-              :disabled="isSending"
-              :aria-label="isSending ? 'Sending message' : 'Type a message'"
-            >
+            <input v-model="newMessage" placeholder="Type a message..." :disabled="isSending"
+              :aria-label="isSending ? 'Sending message' : 'Type a message'">
             <button type="submit" :disabled="isSending || !newMessage.trim()">
               <font-awesome-icon :icon="['fas', 'paper-plane']" />
               <span>{{ isSending ? 'Sending...' : 'Send' }}</span>
@@ -138,7 +121,7 @@ export default {
       if (messageContent && selectedUser.value && !isSending.value) {
         isSending.value = true
         newMessage.value = ''
-        
+
         try {
           await store.dispatch('sendChatMessage', {
             receiver: selectedUser.value,
@@ -148,7 +131,7 @@ export default {
         } catch (error) {
           console.error('Failed to send message:', error)
           alert('Failed to send message. Please try again.')
-          newMessage.value = messageContent 
+          newMessage.value = messageContent
         } finally {
           isSending.value = false
         }
@@ -304,7 +287,7 @@ export default {
   display: flex;
   flex-direction: column;
   background-color: #fff;
-  height: 100%; 
+  height: 100%;
 }
 
 .chat-messages {
@@ -312,7 +295,7 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
-  position: relative; 
+  position: relative;
 }
 
 .chat-messages h3 {
@@ -322,8 +305,8 @@ export default {
   font-size: 1.2em;
   font-weight: 600;
   color: #1a1a1a;
-  background-color: #fff; 
-  position: sticky; 
+  background-color: #fff;
+  position: sticky;
   top: 0;
   z-index: 1;
 }
@@ -334,15 +317,15 @@ export default {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  height: calc(100% - 140px); 
+  height: calc(100% - 140px);
 }
 
 .messages {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: min-content; 
-  padding-bottom: 20px; 
+  min-height: min-content;
+  padding-bottom: 20px;
 }
 
 .message {
@@ -352,8 +335,15 @@ export default {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-wrapper {
@@ -549,12 +539,12 @@ export default {
   }
 
   .message-actions {
-    opacity: 1; 
+    opacity: 1;
     padding: 0 2px;
   }
 
   .message-input button span {
-    display: none; 
+    display: none;
   }
 
   .message-input button {
@@ -610,7 +600,7 @@ export default {
   }
 
   .messages-wrapper {
-    height: calc(100% - 130px); 
+    height: calc(100% - 130px);
     padding: 10px;
   }
 
